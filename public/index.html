@@ -149,6 +149,8 @@ p.total{font-weight:700;margin:12px 0 0}
 #memberDetail h2{margin:0 0 10px;color:var(--navy)}
 #memberDetail .card h3{margin-top:0}
 #memberDetail ul{padding-left:18px;margin:0}
+img.chart{display:block;width:100%;max-width:100%;height:auto;border-radius:12px;margin:6px 0}
+.kit summary{cursor:pointer;font-weight:700;color:var(--accent);min-height:44px;display:flex;align-items:center}
 </style>
 </head>
 <body>
@@ -186,7 +188,8 @@ p.total{font-weight:700;margin:12px 0 0}
       <div><label for="i-klass">ชั้น / รุ่น</label><input id="i-klass" data-k="klass" placeholder="เช่น ม.1/2 หรือ U15" autocomplete="off"></div>
       <div><label for="i-shop">ถึงร้าน</label><input id="i-shop" data-k="shop" placeholder="เช่น DS Garment" autocomplete="off"></div>
       <div><label for="i-date">วันที่สั่ง</label><input id="i-date" type="date" data-k="date"></div>
-      <div><label for="i-price">ราคาต่อชุด (บาท)</label><input id="i-price" type="number" min="0" inputmode="decimal" data-k="price" placeholder="เช่น 290"></div>
+      <div><label for="i-ps">ราคาเสื้อ (บาท/ตัว)</label><input id="i-ps" type="number" min="0" inputmode="decimal" data-k="priceShirt" placeholder="เช่น 180"></div>
+      <div><label for="i-pp">ราคากางเกง (บาท/ตัว)</label><input id="i-pp" type="number" min="0" inputmode="decimal" data-k="pricePants" placeholder="เช่น 110"></div>
     </div>
     <details class="card" style="margin:14px 0 0">
       <summary>แบบชุดและตารางไซส์</summary>
@@ -284,7 +287,9 @@ function newOrder(from, id){
       klass: "",
       shop: from ? from.info.shop : "",
       date: today(),
-      price: ""
+      price: "",
+      priceShirt: from ? (from.info.priceShirt || "") : "",
+      pricePants: from ? (from.info.pricePants || "") : ""
     },
     students: [ emptyStudent() ],
     qr: ""
@@ -436,11 +441,29 @@ function esc(s){
 }
 function isFilled(s){ return s.name.trim() !== "" || s.shirt || s.pants; }
 function filled(){ return cur().students.filter(isFilled); }
-function isComplete(s){ return s.name.trim() !== "" && s.shirt && s.pants; }
+// สั่งเฉพาะเสื้อหรือเฉพาะกางเกงได้ (เลือก "ไม่สั่ง")
+const NONE = "ไม่สั่ง";
+function hasShirt(s){ return !!s.shirt && s.shirt !== NONE; }
+function hasPants(s){ return !!s.pants && s.pants !== NONE; }
+function isComplete(s){ return s.name.trim() !== "" && s.shirt && s.pants && (hasShirt(s) || hasPants(s)); }
+// ราคาของคนหนึ่งคน = ราคาเสื้อ (ถ้าสั่ง) + ราคากางเกง (ถ้าสั่ง) ถ้ายังไม่ได้ใส่ราคาแยก ใช้ราคาต่อชุดเดิม
+function priceOf(s, o){
+  const info = (o || cur()).info;
+  const ps = Number(info.priceShirt) || 0, pp = Number(info.pricePants) || 0;
+  if (!ps && !pp) return Number(info.price) || 0;
+  return (hasShirt(s) ? ps : 0) + (hasPants(s) ? pp : 0);
+}
+function hasPricing(o){ const i = (o || cur()).info; return !!(Number(i.priceShirt) || Number(i.pricePants) || Number(i.price)); }
+function priceLabel(o){
+  const i = (o || cur()).info;
+  if (Number(i.priceShirt) || Number(i.pricePants)) return `เสื้อ ${baht(Number(i.priceShirt) || 0)} · กางเกง ${baht(Number(i.pricePants) || 0)}`;
+  return i.price ? `ชุดละ ${baht(i.price)}` : "-";
+}
 
 // ยอดที่จ่ายจริงของคนหนึ่งคน (ไม่เกินราคาต่อชุด)
 // ข้อมูลเก่าที่ติ๊ก "จ่ายแล้ว" ไว้จะนับเป็นจ่ายครบ
-function paidOf(s, price){
+function paidOf(s){
+  const price = priceOf(s);
   if (s.cash) return price; // จ่ายเงินสดแล้ว ถือว่าจ่ายครบ
   if (s.amount !== undefined && s.amount !== ""){
     return Math.min(Math.max(Number(s.amount) || 0, 0), price);
@@ -448,9 +471,10 @@ function paidOf(s, price){
   return s.paid ? price : 0;
 }
 // สถานะการจ่าย: ยอดครบ + มีสลิป = จ่ายครบ (อัตโนมัติ)
-function payStatus(s, price){
+function payStatus(s){
   if (!isComplete(s)) return "";
-  const p = paidOf(s, price);
+  const price = priceOf(s);
+  const p = paidOf(s);
   if (price > 0 && p >= price) return (s.slip || s.cash) ? "full" : "wait";
   if (p > 0) return "partial";
   return "none";
@@ -458,13 +482,13 @@ function payStatus(s, price){
 
 function payInfo(){
   const o = cur();
-  const price = Number(o.info.price) || 0;
+  const price = hasPricing(o) ? 1 : 0;
   const comp = filled().filter(isComplete);
   let paidAmt = 0, fullN = 0, waitN = 0, partialN = 0, noneN = 0;
   const notFull = [];
   for (const s of comp){
-    paidAmt += paidOf(s, price);
-    const st = payStatus(s, price);
+    paidAmt += paidOf(s);
+    const st = payStatus(s);
     if (st === "full") fullN++;
     else {
       notFull.push(s.name.trim());
@@ -473,7 +497,7 @@ function payInfo(){
       else noneN++;
     }
   }
-  const total = comp.length * price;
+  const total = comp.reduce((n, s) => n + priceOf(s, o), 0);
   return { price, sets: comp.length, total, paidAmt, dueAmt: total - paidAmt, fullN, waitN, partialN, noneN, notFull };
 }
 function baht(n){ return Number(n).toLocaleString("th-TH") + " บาท"; }
@@ -486,12 +510,14 @@ function thaiDate(v){
 }
 
 function sizeOptions(selected, list){
-  const opts = selected && !list.includes(selected) ? [...list, selected] : list;
+  const base = [...list, NONE];
+  const opts = selected && !base.includes(selected) ? [...base, selected] : base;
   return `<option value="">เลือก</option>` +
     opts.map(s => `<option value="${s}"${s===selected?" selected":""}>${s}</option>`).join("");
 }
 
-function amountField(s, price){
+function amountField(s){
+  const price = priceOf(s);
   if (s.amount !== undefined && s.amount !== "") return s.amount;
   return s.paid && price ? String(price) : "";
 }
@@ -511,7 +537,7 @@ function renderRows(){
   const price = Number(o.info.price) || 0;
   if (openIdx !== null && !o.students[openIdx]) openIdx = null;
   $("rows").innerHTML = o.students.map((st, i) => {
-    const status = payStatus(st, price);
+    const status = payStatus(st);
     if (i !== openIdx){
       return `<button class="btn" data-open="${i}" style="width:100%;display:flex;justify-content:space-between;align-items:center;gap:8px;text-align:left">
         <span>${i+1}. ${esc(st.name) || "(ยังไม่มีชื่อ)"}</span>
@@ -542,7 +568,7 @@ function renderRows(){
       <div class="pay">
         <div class="amt">
           <label for="a-${i}">ยอดที่โอน (บาท)</label>
-          <input id="a-${i}" type="number" min="0" inputmode="decimal" data-f="amount" value="${esc(amountField(st, price))}" placeholder="${price || "0"}">
+          <input id="a-${i}" type="number" min="0" inputmode="decimal" data-f="amount" value="${esc(amountField(st))}" placeholder="${priceOf(st) || "0"}">
         </div>
         <label class="chk"><input type="checkbox" data-f="cash"${st.cash ? " checked" : ""}> จ่ายเงินสดแล้ว</label>
         ${status ? `<span class="badge ${status}">${STATUS_LABEL[status]}</span>` : ""}
@@ -570,19 +596,19 @@ function summaryHTML(){
     const sh = countSize("shirt", sz), pa = countSize("pants", sz);
     return `<tr><td>${sz}</td><td class="c">${sh}</td><td class="c">${pa}</td></tr>`;
   }).join("");
-  const totalShirt = filled().filter(s => s.shirt).length;
-  const totalPants = filled().filter(s => s.pants).length;
+  const totalShirt = filled().filter(hasShirt).length;
+  const totalPants = filled().filter(hasPants).length;
   return `
     <table class="tbl">
       <thead><tr><th>ไซส์</th><th class="c">เสื้อ (ตัว)</th><th class="c">กางเกง (ตัว)</th></tr></thead>
       <tbody>${rows}</tbody>
       <tfoot><tr><td>รวม</td><td class="c">${totalShirt}</td><td class="c">${totalPants}</td></tr></tfoot>
     </table>
-    <p class="total">จำนวนชุด ${p.sets} ชุด · ยอดรวม ${p.price ? baht(p.total) : "-"}${p.price ? ` (ชุดละ ${baht(p.price)})` : ""}</p>
+    <p class="total">สั่ง ${p.sets} คน · ยอดรวม ${p.price ? baht(p.total) : "-"}${p.price ? ` (${priceLabel()})` : ""}</p>
     <div class="paysum">
-      <p><b>${STATUS_LABEL.full}</b> ${p.fullN} ชุด</p>
-      <p><b>${STATUS_LABEL.wait}</b> ${p.waitN} ชุด</p>
-      <p><b>${STATUS_LABEL.partial}</b> ${p.partialN} ชุด · <b>${STATUS_LABEL.none}</b> ${p.noneN} ชุด</p>
+      <p><b>${STATUS_LABEL.full}</b> ${p.fullN} คน</p>
+      <p><b>${STATUS_LABEL.wait}</b> ${p.waitN} คน</p>
+      <p><b>${STATUS_LABEL.partial}</b> ${p.partialN} คน · <b>${STATUS_LABEL.none}</b> ${p.noneN} คน</p>
       ${p.price ? `<p><b>ยอดที่รับแล้ว</b> ${baht(p.paidAmt)} · <b>ยอดค้าง</b> ${baht(p.dueAmt)}</p>` : ""}
       ${p.notFull.length ? `<p class="note" style="margin:0">ยังไม่จ่ายครบ: ${esc(p.notFull.join(", "))}</p>` : ""}
     </div>`;
@@ -603,7 +629,7 @@ function renderWarn(){
 function renderDock(){
   const p = payInfo();
   const n = filled().length;
-  $("dockStudents").textContent = `สมาชิก ${n} คน · ${p.sets} ชุด · จ่ายครบ ${p.fullN} ชุด`;
+  $("dockStudents").textContent = `สมาชิก ${n} คน · สั่งครบ ${p.sets} คน · จ่ายครบ ${p.fullN} คน`;
   $("dockTotal").textContent = p.price ? `รวม ${baht(p.total)} · ค้าง ${baht(p.dueAmt)}` : "ยังไม่ได้ใส่ราคา";
   $("countHint").textContent = n ? `${n} คน` : "";
 }
@@ -621,7 +647,7 @@ function renderSheet(){
         <td class="c">${esc(s.num) || "-"}</td>
         <td class="c">${s.shirt || "-"}</td>
         <td class="c">${s.pants || "-"}</td>
-        <td class="c">${STATUS_LABEL[payStatus(s, price)] || "-"}</td></tr>`).join("")
+        <td class="c">${STATUS_LABEL[payStatus(s)] || "-"}</td></tr>`).join("")
     : `<tr><td colspan="7" class="empty">ยังไม่มีรายชื่อ</td></tr>`;
   const title = o.name ? esc(o.name) : "ใบสั่งชุดกีฬา";
   $("sheet").innerHTML = `
@@ -632,7 +658,7 @@ function renderSheet(){
       <div><b>ชั้น / รุ่น:</b> ${esc(info.klass) || "-"}</div>
       <div><b>ถึงร้าน:</b> ${esc(info.shop) || "-"}</div>
       <div><b>วันที่สั่ง:</b> ${thaiDate(info.date)}</div>
-      <div><b>ราคาต่อชุด:</b> ${info.price ? baht(info.price) : "-"}</div>
+      <div><b>ราคา:</b> ${priceLabel(o)}</div>
     </div>
     <h3>รายชื่อสมาชิก (${list.length} คน)</h3>
     <table>
@@ -706,7 +732,7 @@ $("info").addEventListener("input", e => {
   const k = e.target.dataset.k;
   if (k){
     o.info[k] = e.target.value;
-    if (k === "price") renderRows();
+    if (k === "price" || k === "priceShirt" || k === "pricePants") renderRows();
     refresh();
   }
 });
@@ -728,7 +754,7 @@ $("rows").addEventListener("change", e => {
   if (f === "cash"){
     // ติ๊กจ่ายเงินสด: ใส่ยอดเป็นราคาต่อชุดให้ และถือว่าจ่ายครบ
     st.cash = e.target.checked;
-    const price = Number(cur().info.price) || 0;
+    const price = priceOf(st);
     if (st.cash && price > 0) st.amount = String(price);
     renderRows(); refresh();
     $("status").textContent = st.cash ? "บันทึกการจ่ายเงินสดแล้ว" : "ยกเลิกการจ่ายเงินสดแล้ว";
@@ -786,14 +812,14 @@ $("rows").addEventListener("change", async e => {
     st.sid = st.sid || uid();
     st.slip = await shrinkImage(file, 800, "image/jpeg", 0.7);
     await putMedia("slip-" + st.sid, st.slip);
-    const price = Number(o.info.price) || 0;
+    const price = priceOf(st, o);
     if (st.amount === undefined || st.amount === ""){
       if (price > 0) st.amount = String(price);
     }
     renderRows(); refresh();
     $("status").textContent = price > 0
       ? "แนบสลิปแล้ว ระบบเช็คการจ่ายจากยอดที่โอน (แก้ยอดได้ถ้าไม่ตรง)"
-      : "แนบสลิปแล้ว กรุณาใส่ราคาต่อชุดก่อน ระบบจึงจะเช็คการจ่ายอัตโนมัติ";
+      : "แนบสลิปแล้ว กรุณาใส่ราคาเสื้อและกางเกงก่อน ระบบจึงจะเช็คการจ่ายอัตโนมัติ";
   }catch(err){
     $("status").textContent = "อ่านรูปสลิปไม่สำเร็จ ลองเลือกไฟล์รูปอื่น";
   }
@@ -902,13 +928,13 @@ $("xlsxBtn").addEventListener("click", () => {
     ["ชั้น / รุ่น", info.klass],
     ["ถึงร้าน", info.shop],
     ["วันที่สั่ง", thaiDate(info.date)],
-    ["ราคาต่อชุด (บาท)", info.price || "-"],
+    ["ราคา", priceLabel(o)],
     [],
     ["ลำดับ", "ชื่อ-สกุล", "ชื่อหลังเสื้อ", "เบอร์หลังเสื้อ", "ไซส์เสื้อ", "ไซส์กางเกง", "ยอดที่โอน (บาท)", "การจ่าย"],
     ...list.map((s, i) => [
       i+1, s.name, s.back, s.num, s.shirt, s.pants,
-      isComplete(s) ? paidOf(s, p.price) : 0,
-      STATUS_LABEL[payStatus(s, p.price)] || "-"
+      isComplete(s) ? paidOf(s) : 0,
+      STATUS_LABEL[payStatus(s)] || "-"
     ]),
     [],
     ["รวมสมาชิก", list.length]
@@ -916,9 +942,9 @@ $("xlsxBtn").addEventListener("click", () => {
   const sheet2 = [
     ["ไซส์", "เสื้อ (ตัว)", "กางเกง (ตัว)"],
     ...ALL_SIZES.map(sz => [sz, countSizeOf(list, "shirt", sz), countSizeOf(list, "pants", sz)]),
-    ["รวม", list.filter(s => s.shirt).length, list.filter(s => s.pants).length],
+    ["รวม", list.filter(hasShirt).length, list.filter(hasPants).length],
     [],
-    ["จำนวนชุด (ครบเสื้อ+กางเกง)", p.sets],
+    ["จำนวนคนที่สั่ง", p.sets],
     ["ยอดรวม (บาท)", p.total],
     ["จ่ายครบแล้ว (ชุด)", p.fullN],
     ["ยอดครบ รอสลิป (ชุด)", p.waitN],
@@ -1009,16 +1035,16 @@ function orderAsText(){
     `ผู้สั่ง: ${info.teacher || "-"}`,
     `ถึงร้าน: ${info.shop || "-"}`,
     `วันที่สั่ง: ${thaiDate(info.date)}`,
-    `ราคาต่อชุด: ${info.price ? baht(info.price) : "-"}`,
+    `ราคา: ${priceLabel(o)}`,
     "",
     ["ลำดับ","ชื่อ-สกุล","ชื่อหลังเสื้อ","เบอร์","ไซส์เสื้อ","ไซส์กางเกง","การจ่าย"].join("\t"),
-    ...list.map((s, i) => [i+1, s.name, s.back, s.num, s.shirt, s.pants, STATUS_LABEL[payStatus(s, p.price)] || "-"].join("\t")),
+    ...list.map((s, i) => [i+1, s.name, s.back, s.num, s.shirt, s.pants, STATUS_LABEL[payStatus(s)] || "-"].join("\t")),
     "",
     ["ไซส์","เสื้อ (ตัว)","กางเกง (ตัว)"].join("\t"),
     ...ALL_SIZES.map(sz => [sz, countSizeOf(list, "shirt", sz), countSizeOf(list, "pants", sz)].join("\t")),
-    ["รวม", list.filter(s => s.shirt).length, list.filter(s => s.pants).length].join("\t"),
+    ["รวม", list.filter(hasShirt).length, list.filter(hasPants).length].join("\t"),
     "",
-    `จำนวนชุด ${p.sets} ชุด · ยอดรวม ${p.price ? baht(p.total) : "-"} · ค้างจ่าย ${p.price ? baht(p.dueAmt) : "-"}`
+    `สั่ง ${p.sets} คน · ยอดรวม ${p.price ? baht(p.total) : "-"} · ค้างจ่าย ${p.price ? baht(p.dueAmt) : "-"}`
   ];
   return lines.join("\n");
 }
@@ -1089,6 +1115,18 @@ function memLog(s, text){
   s.hist.push({ text, at: new Date().toLocaleString("th-TH", { day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" }) });
 }
 const MEM_LABEL = { name:"ชื่อ-สกุล", back:"ชื่อหลังเสื้อ", num:"เบอร์หลังเสื้อ", phone:"เบอร์โทร", shirt:"ไซส์เสื้อ", pants:"ไซส์กางเกง" };
+// แบบชุดและตารางไซส์ ให้สมาชิกดูก่อนเลือกไซส์
+function kitHTML(open){
+  return `<details class="card kit" style="margin-top:14px"${open ? " open" : ""}>
+    <summary>แบบชุดและตารางไซส์</summary>
+    <img class="chart" src="uniform-assets/design.jpg" alt="แบบชุดกีฬา" loading="lazy">
+    <h3>ตารางไซส์เสื้อ (ใส่ได้ทั้งชายและหญิง)</h3>
+    <img class="chart" src="uniform-assets/size-shirt.jpg" alt="ตารางไซส์เสื้อ" loading="lazy">
+    <h3>ตารางไซส์กางเกง</h3>
+    <img class="chart" src="uniform-assets/size-shorts.jpg" alt="ตารางไซส์กางเกง" loading="lazy">
+    <p class="note">ขนาดอาจคลาดเคลื่อน ±0.5–1 นิ้ว (กางเกงวัดรอบเอว)</p>
+  </details>`;
+}
 function renderMember(){
   const o = cur();
   const price = Number(o.info.price) || 0;
@@ -1098,13 +1136,13 @@ function renderMember(){
   if (memIndex === null){
     $("memberPick").innerHTML = `<h2 style="margin:0 0 10px;color:var(--navy)">เลือกชื่อของคุณ</h2>` +
       (o.students.length ? o.students.map((s, i) => {
-        const st = payStatus(s, price);
+        const st = payStatus(s);
         return `<button class="btn" data-mi="${i}"><span>${esc(s.name) || "(ไม่มีชื่อ)"} · เสื้อ ${s.shirt || "-"} · กางเกง ${s.pants || "-"}</span><span class="badge ${st}">${STATUS_LABEL[st] || "กรอกไม่ครบ"}</span></button>`;
-      }).join("") : `<p class="note">ยังไม่มีรายชื่อ</p>`);
+      }).join("") : `<p class="note">ยังไม่มีรายชื่อ</p>`) + kitHTML(false);
     return;
   }
   const s = o.students[memIndex];
-  const st = payStatus(s, price);
+  const st = payStatus(s);
   const hist = (s.hist || []).map(h => `<li>${esc(h.text)} <span class="note">· ${h.at}</span></li>`).join("") || "<li>ยังไม่มีการแก้ไข</li>";
   $("memberDetail").innerHTML = `
     <button class="btn" id="memBack" style="margin-bottom:12px">← เลือกชื่อใหม่</button>
@@ -1117,10 +1155,11 @@ function renderMember(){
       <div><label>ไซส์เสื้อ</label><select data-mf="shirt">${sizeOptions(s.shirt, SHIRT_SIZES)}</select></div>
       <div><label>ไซส์กางเกง</label><select data-mf="pants">${sizeOptions(s.pants, PANTS_SIZES)}</select></div>
     </div>
+    ${kitHTML(true)}
     <div class="card" style="margin-top:14px">
       <h3>การจ่ายเงิน</h3>
       <p><span class="badge ${st}">${STATUS_LABEL[st] || "กรอกไม่ครบ"}</span></p>
-      <p>ยอดที่ต้องจ่าย <b>${price ? baht(price) : "-"}</b></p>
+      <p>ยอดที่ต้องจ่าย <b>${priceOf(s) ? baht(priceOf(s)) : "-"}</b> <span class="note">(${priceLabel()})</span></p>
       ${o.qr ? `<div style="text-align:center;margin:10px 0"><img src="${o.qr}" alt="QR ชำระเงิน" style="width:240px;max-width:100%;height:auto;background:#fff;padding:8px;border-radius:12px;border:1px solid var(--line)"><div style="margin-top:8px"><button class="btn" id="memSaveQr">บันทึกรูป QR</button></div></div>` : `<p class="note">ยังไม่มี QR ชำระเงิน แอดมินจะเพิ่มให้เร็ว ๆ นี้</p>`}
       ${s.slip && s.slip !== "1" ? `<img src="${s.slip}" alt="สลิป" style="width:120px;border-radius:10px;margin-bottom:8px">` : s.slip ? `<p class="note" style="color:var(--ok)">แนบสลิปแล้ว (แอดมินเท่านั้นที่เห็นรูปสลิป)</p>` : `<p class="note">ยังไม่ได้แนบสลิป</p>`}
       <div style="display:grid;gap:10px">
