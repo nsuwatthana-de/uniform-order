@@ -23,7 +23,7 @@
     appId: "1:351494171092:web:cf0a27ddcd52ef2edcce41"
   };
   // อีเมลแอดมิน ต้องแก้ให้ตรงกับรายการใน firestore.rules
-  const ADMIN_EMAILS = [];
+  const ADMIN_EMAILS = ["n.suwatthana@gmail.com"];
 
   const MASK = "••••••";
   const BACKUP_EVERY_MS = 10 * 60 * 1000;
