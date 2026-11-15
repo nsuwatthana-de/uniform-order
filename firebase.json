@@ -1,0 +1,16 @@
+{
+  "firestore": { "rules": "firestore.rules" },
+  "hosting": {
+    "public": "public",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "headers": [
+      { "source": "**/*.@(html|js)", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }
+    ]
+  },
+  "emulators": {
+    "firestore": { "port": 8080 },
+    "auth": { "port": 9099 },
+    "hosting": { "port": 5000 },
+    "ui": { "enabled": false }
+  }
+}
