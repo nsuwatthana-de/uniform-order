@@ -1,0 +1,1204 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#1e5eff">
+<title>Uniform Order</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="fb-runtime.js"></script>
+<style>
+:root{
+  color-scheme:light;
+  --bg:#f5f8ff; --card:#ffffff; --text:#172b52; --muted:#6b7b99; --line:#dce5f3;
+  --accent:#ff299b; --accent-text:#ffffff; --blue:#16bafa; --navy:#102b61;
+  --gradient:linear-gradient(120deg,#ff299b,#19bfff);
+  --danger:#c62828; --ok:#1b7f3b; --ok-bg:#e6f8ee; --warn-bg:#fff4e5; --warn-text:#8a4b00; --bad-bg:#fdeaea;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Kanit,system-ui,sans-serif;font-size:16px;line-height:1.5;padding-bottom:160px}
+.wrap{max-width:720px;margin:0 auto;padding:16px}
+h1{font-size:1.4rem;margin:6px 0 2px}
+
+/* หัวเว็บและส่วนหัว */
+.topbar{background:var(--card);box-shadow:0 3px 18px #193c7010;padding:14px 16px}
+.logo{font-size:24px;font-weight:800;font-style:italic;color:var(--navy);line-height:1;max-width:720px;margin:0 auto}
+.logo span{color:var(--accent);margin-left:4px}
+.logo small{display:block;font-size:10px;font-style:normal;font-weight:500;letter-spacing:2px;color:var(--blue);margin-top:4px}
+.hero{background:radial-gradient(circle at 85% 20%,#20c6ff40 0,transparent 40%),linear-gradient(115deg,#fff0fa,#d9f4ff 65%,#bceaff);border-radius:22px;padding:22px 20px;margin:16px 0}
+.hero-tag{display:inline-block;padding:5px 14px;background:var(--gradient);color:#fff;border-radius:30px;font-size:12px;margin-bottom:10px}
+.hero h1{font-size:clamp(26px,5vw,38px);line-height:1.2;font-weight:800;color:var(--navy)}
+.hero h1 span{color:var(--accent);display:block}
+.hero .lead{color:#536c94;margin:10px 0 0}
+
+/* แถบเลือกออเดอร์ */
+.orderbar{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px;margin-bottom:16px;display:grid;gap:10px;box-shadow:0 5px 20px #193c7010}
+.orderbar .top{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end}
+.orderbar select{font-weight:600}
+
+/* หัวข้อแต่ละขั้นตอน */
+.step{display:flex;align-items:center;gap:10px;margin:0 0 12px}
+.step .n{width:30px;height:30px;border-radius:50%;background:var(--gradient);color:var(--accent-text);display:grid;place-items:center;font-weight:700;flex:none}
+.step h2{margin:0;font-size:1.1rem}
+.step .hint{margin-left:auto;color:var(--muted);font-size:.9rem}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:16px;box-shadow:0 5px 20px #193c7010}
+.card h3{font-size:1rem;margin:16px 0 6px}
+details.card summary{cursor:pointer;font-weight:700;color:var(--accent);list-style:none;min-height:44px;display:flex;align-items:center}
+details.card summary::-webkit-details-marker{display:none}
+details.card summary::after{content:"ดู";margin-left:auto;font-weight:400;color:var(--muted);font-size:.9rem}
+details.card[open] summary::after{content:"ซ่อน"}
+details.card[open] summary{margin-bottom:10px}
+.sumtoggle{cursor:pointer;color:var(--accent);font-weight:700;min-height:44px;display:flex;align-items:center;list-style:none}
+
+.fields{display:grid;grid-template-columns:1fr;gap:12px}
+@media (min-width:600px){ .fields{grid-template-columns:1fr 1fr} }
+label{display:block;font-size:.9rem;color:var(--muted);margin-bottom:4px;font-weight:600}
+input,select,textarea{width:100%;font:inherit;font-size:16px;min-height:46px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--text)}
+textarea{min-height:110px}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:1px}
+
+/* รายชื่อสมาชิก: แต่ละคนเป็นการ์ดหนึ่งใบ */
+#rows{display:grid;gap:12px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--bg);align-items:end}
+.row .nm{grid-column:1/-1}
+.row .sel{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:end;grid-column:1/-1}
+.row .pay{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:10px;align-items:end}
+.row .pay .amt{width:150px}
+.row .pay .amt input{min-height:46px}
+.row .pay .slip{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.row .pay .btn{min-height:46px}
+.slip-btn{display:inline-flex;align-items:center;margin:0;cursor:pointer;font-size:1rem;color:var(--text)}
+.slip-th{width:46px;height:46px;object-fit:cover;border-radius:10px;border:1px solid var(--line);display:block}
+.chk{display:flex;align-items:center;gap:8px;min-height:46px;font-weight:700;color:var(--text);margin:0;font-size:1rem;cursor:pointer;white-space:nowrap}
+.chk input{width:24px;height:24px;min-height:0;margin:0;padding:0;accent-color:var(--ok)}
+.badge{padding:8px 12px;border-radius:20px;font-size:.85rem;font-weight:700;white-space:nowrap;align-self:center}
+.badge.full{background:var(--ok-bg);color:var(--ok)}
+.badge.wait{background:var(--warn-bg);color:var(--warn-text)}
+.badge.partial{background:var(--warn-bg);color:var(--warn-text)}
+.badge.none{background:var(--bad-bg);color:var(--danger)}
+@media (min-width:640px){
+  .row{grid-template-columns:2fr 1.4fr .8fr 1fr 1fr 2.6fr;background:transparent;align-items:end}
+  .row .nm{grid-column:auto}
+  .row .sel{display:contents}
+  .row .pay{grid-column:auto;flex-wrap:nowrap;align-items:center}
+}
+
+.btn{font:inherit;font-weight:600;min-height:46px;padding:10px 16px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--text);cursor:pointer;white-space:nowrap;transition:.2s}
+.btn:disabled{opacity:.6;cursor:wait}
+.btn.primary{background:var(--gradient);color:var(--accent-text);border-color:transparent;box-shadow:0 7px 18px #ff299b40}
+.btn.primary:hover{transform:translateY(-2px)}
+.btn.danger{color:var(--danger)}
+.btn.block{width:100%;margin-top:4px}
+.btns{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.warn{background:var(--warn-bg);color:var(--warn-text);padding:12px 14px;border-radius:12px;margin:0 0 12px;font-size:.95rem}
+.note{color:var(--muted);font-size:.9rem;margin:8px 0 0}
+
+.tbl{width:100%;border-collapse:collapse}
+.tbl th,.tbl td{border-bottom:1px solid var(--line);padding:9px 8px;text-align:left}
+.tbl th{color:var(--muted);font-weight:600;font-size:.9rem}
+.tbl .c{text-align:center}
+.tbl tfoot td{font-weight:700}
+p.total{font-weight:700;margin:12px 0 0}
+.paysum{margin-top:14px;display:grid;gap:6px}
+.paysum p{margin:0}
+.qr-thumb{width:160px;height:auto;display:block;background:#fff;border-radius:10px;padding:6px;margin-bottom:10px}
+.sheet-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+/* แถบล่าง: ยอดและปุ่มส่งออก มองเห็นตลอดเวลา */
+.dock{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);box-shadow:0 -6px 22px #193c7018;border-radius:18px 18px 0 0;padding:10px 16px calc(10px + env(safe-area-inset-bottom))}
+.dock-inner{max-width:720px;margin:0 auto;display:grid;gap:6px}
+.dock-top{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:.95rem}
+.dock-top b{font-size:1.05rem}
+.dock-btns{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+#status{margin:0;font-size:.85rem;color:var(--muted);min-height:1.2em}
+
+/* ใบสั่งซื้อ (ใช้เป็นภาพที่ส่งออก จึงคงสีขาวเสมอ) */
+#sheet{background:#ffffff;color:#111;padding:28px;border-radius:8px;width:100%;max-width:720px;margin:0 auto}
+#sheet h2{margin:0 0 6px;font-size:22px;text-align:center}
+#sheet .sub{text-align:center;margin:0 0 14px;font-size:14px;color:#444}
+#sheet .info{display:grid;grid-template-columns:1fr 1fr;gap:4px 18px;font-size:15px;margin-bottom:14px}
+#sheet .info b{font-weight:700}
+#sheet h3{font-size:16px;margin:18px 0 8px}
+#sheet table{width:100%;border-collapse:collapse;font-size:15px}
+#sheet th,#sheet td{border:1px solid #999;padding:6px 8px;text-align:left}
+#sheet th{background:#e8eefc}
+#sheet .c{text-align:center}
+#sheet tfoot td{font-weight:700;background:#f4f6fa}
+#sheet .empty{text-align:center;color:#666;padding:16px}
+#sheet .tbl th,#sheet .tbl td{color:#111;border:1px solid #999;padding:6px 8px;font-size:15px}
+#sheet .tbl th{background:#e8eefc;font-weight:700}
+#sheet .tbl tfoot td{background:#f4f6fa}
+#sheet p.total,#sheet .paysum{color:#111}
+#sheet .qr-box{margin-top:18px;text-align:center}
+#sheet .qr-box img{width:200px;max-width:50%;height:auto}
+#sheet .qr-box p{margin:6px 0 0;font-size:15px}
+@media (max-width:480px){
+  #sheet .info{grid-template-columns:1fr}
+  .sheet-wrap #sheet{padding:14px}
+  .sheet-wrap #sheet th,.sheet-wrap #sheet td{padding:4px;font-size:13px}
+}
+.modeTabs{display:flex;gap:10px;margin:4px 0 12px}
+.modeTabs .btn{flex:1}
+#memberView{padding:16px}
+#memberPick .btn{width:100%;display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;text-align:left}
+#memberDetail h2{margin:0 0 10px;color:var(--navy)}
+#memberDetail .card h3{margin-top:0}
+#memberDetail ul{padding-left:18px;margin:0}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="logo">Uniform<span>Order</span><small>สั่งให้ทีมครบในที่เดียว</small></div>
+</header>
+<div class="wrap">
+  <div id="topTools" style="display:flex;justify-content:flex-end;margin:4px 0 8px"><button class="btn" id="adminEntry" hidden style="min-height:36px;padding:6px 12px;font-size:.85rem;margin-left:8px">เข้าหน้าแอดมิน</button><button class="btn" id="viewMember" hidden style="min-height:36px;padding:6px 12px;font-size:.85rem;margin-left:8px">ดูแบบสมาชิก</button></div>
+  <div id="modeBanner" class="warn" hidden></div>
+  <section class="hero">
+    <span class="hero-tag">SPORTSWEAR ORDER</span>
+    <h1>สั่งชุดกีฬา<span>ให้ทีมครบทุกคน</span></h1>
+    <p class="lead">เลือกออเดอร์ กรอกตามลำดับ 1 → 2 → 3 ระบบบันทึกให้อัตโนมัติ และยอดรวมอยู่ด้านล่างเสมอ</p>
+  </section>
+
+  <!-- เลือกออเดอร์ -->
+  <div class="orderbar">
+    <div class="top">
+      <div>
+        <label for="orderSel">ออเดอร์ที่กำลังทำ</label>
+        <select id="orderSel"></select>
+      </div>
+      <button class="btn primary" id="newOrder">+ ออเดอร์ใหม่</button>
+    </div>
+    <p class="note" style="margin:0">ออเดอร์ใหม่จะคัดลอกชื่อครู โรงเรียน และร้านจากออเดอร์ที่เปิดอยู่ ใช้ได้กับการสั่งชุดอื่นต่อไป</p>
+  </div>
+
+  <!-- ขั้นที่ 1 -->
+  <div class="step"><span class="n">1</span><h2>ข้อมูลการสั่ง</h2></div>
+  <section class="card">
+    <div class="fields" id="info">
+      <div style="grid-column:1/-1"><label for="o-name">ชื่องาน (เช่น ชุดฟุตบอล ม.1/2)</label><input id="o-name" data-o="name" placeholder="ตั้งชื่อให้จำง่าย" autocomplete="off"></div>
+      <div><label for="i-teacher">ชื่อผู้สั่ง</label><input id="i-teacher" data-k="teacher" placeholder="เช่น ครูสมศรี" autocomplete="off"></div>
+      <div><label for="i-school">ทีม / โรงเรียน / องค์กร</label><input id="i-school" data-k="school" placeholder="ชื่อทีมหรือโรงเรียน" autocomplete="off"></div>
+      <div><label for="i-klass">ชั้น / รุ่น</label><input id="i-klass" data-k="klass" placeholder="เช่น ม.1/2 หรือ U15" autocomplete="off"></div>
+      <div><label for="i-shop">ถึงร้าน</label><input id="i-shop" data-k="shop" placeholder="เช่น DS Garment" autocomplete="off"></div>
+      <div><label for="i-date">วันที่สั่ง</label><input id="i-date" type="date" data-k="date"></div>
+      <div><label for="i-price">ราคาต่อชุด (บาท)</label><input id="i-price" type="number" min="0" inputmode="decimal" data-k="price" placeholder="เช่น 290"></div>
+    </div>
+    <details class="card" style="margin:14px 0 0">
+      <summary>แบบชุดและตารางไซส์</summary>
+      <img class="chart" src="uniform-assets/design.jpg" alt="แบบชุดกีฬาโรงเรียนหนองหานวิทยา" loading="lazy">
+      <h3>ตารางไซส์เสื้อผู้ใหญ่ (ใส่ได้ทั้งชายและหญิง)</h3>
+      <img class="chart" src="uniform-assets/size-shirt.jpg" alt="ตารางไซส์เสื้อผู้ใหญ่" loading="lazy">
+      <h3>ตารางไซส์กางเกงฟุตบอล</h3>
+      <img class="chart" src="uniform-assets/size-shorts.jpg" alt="ตารางไซส์กางเกงฟุตบอล" loading="lazy">
+      <p class="note">ขนาดอาจคลาดเคลื่อนได้ ±0.5–1 นิ้ว จากเนื้อผ้าและการตัดเย็บ (กางเกงเป็นรอบเอว)</p>
+    </details>
+  </section>
+
+  <!-- ขั้นที่ 2 -->
+  <div class="step"><span class="n">2</span><h2>รายชื่อสมาชิกและการจ่ายเงิน</h2><span class="hint" id="countHint"></span></div>
+  <section class="card">
+    <div id="warn"></div>
+    <div id="rows"></div>
+    <button class="btn primary block" id="addBtn">+ เพิ่มสมาชิก</button>
+    <details style="margin-top:14px">
+      <summary class="sumtoggle">วางรายชื่อหลายคนพร้อมกัน</summary>
+      <label for="bulkText" style="margin-top:8px">ทีละบรรทัด: ชื่อ, ไซส์เสื้อ, ไซส์กางเกง, ชื่อหลังเสื้อ, เบอร์</label>
+      <textarea id="bulkText" placeholder="โบโซ่, 2XL, XL, BOZO, 23&#10;อุ้ย, L, L, LUMDUAN, 32"></textarea>
+      <div class="btns"><button class="btn primary" id="bulkApply">เพิ่มรายการ</button></div>
+      <p class="note">ไซส์เสื้อ: SSS, SS, S, M, L, XL, 2XL, 3XL, 4XL, 5XL · ไซส์กางเกง: SS, S, M, L, XL (ไม่ตรงกับตารางจะถูกเว้นว่าง) รายการที่นำเข้าจะยังไม่ได้จ่ายเงิน</p>
+    </details>
+  </section>
+
+  <!-- ขั้นที่ 3 -->
+  <div class="step"><span class="n">3</span><h2>สรุปและ QR Code</h2></div>
+  <section class="card">
+    <div id="summary"></div>
+    <h3>QR Code ชำระเงิน (ไม่บังคับ)</h3>
+    <p class="note">อัปโหลดเฉพาะส่วน QR ที่ครอปแล้ว จะแสดงท้ายใบสั่ง และให้สมาชิกสแกนจ่ายในหน้าสมาชิก</p>
+    <div class="btns" style="margin-top:10px">
+      <label class="btn" for="qrFile" style="margin:0;cursor:pointer;color:var(--text);font-size:1rem">เลือกรูป QR Code</label>
+      <input id="qrFile" type="file" accept="image/*" hidden>
+    </div>
+    <div id="qrPreview" style="margin-top:12px"></div>
+    <div class="btns" style="margin-top:18px;border-top:1px solid var(--line);padding-top:14px">
+      <button class="btn" id="clearBtn">ล้างรายชื่อในออเดอร์นี้</button>
+      <button class="btn danger" id="delOrder">ลบออเดอร์นี้</button>
+    </div>
+  </section>
+
+  <details class="card">
+    <summary>ดูตัวอย่างใบสั่ง (ภาพที่ได้จะเป็นแบบนี้)</summary>
+    <div class="sheet-wrap"><div id="sheet"></div></div>
+  </details>
+  <section id="memberView" class="card" hidden>
+    <div id="memberPick"></div>
+    <div id="memberDetail" hidden></div>
+  </section>
+</div>
+
+<!-- แถบล่าง -->
+<div class="dock" role="region" aria-label="ยอดรวมและส่งออก">
+  <div class="dock-inner">
+    <div class="dock-top">
+      <span id="dockStudents"></span>
+      <b id="dockTotal"></b>
+    </div>
+    <div class="dock-btns">
+      <button class="btn" id="xlsxBtn">ดาวน์โหลด Excel</button>
+      <button class="btn primary" id="pngBtn">ดูใบสั่ง</button>
+    </div>
+    <p id="status" role="status" aria-live="polite"></p>
+  </div>
+</div>
+
+<script>
+// ไซส์ตามตาราง DS Garment: เสื้อผู้ใหญ่ SSS–5XL, กางเกงฟุตบอล SS–XL
+const SHIRT_SIZES = ["SSS","SS","S","M","L","XL","2XL","3XL","4XL","5XL"];
+const PANTS_SIZES = ["SS","S","M","L","XL"];
+const ALL_SIZES = ["SSS","SS","S","M","L","XL","2XL","3XL","4XL","5XL"];
+const STATUS_LABEL = { full:"จ่ายครบแล้ว", wait:"ยอดครบ รอสลิป", partial:"จ่ายไม่ครบ", none:"ยังไม่จ่าย" };
+const KEY = "uniform-order-v2";
+const OLD_KEY = "uniform-order-v1";
+const $ = id => document.getElementById(id);
+
+function today(){
+  const d = new Date();
+  const p = n => String(n).padStart(2,"0");
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+}
+function uid(){ return Math.random().toString(36).slice(2, 10); }
+// amount = ยอดที่โอนจริง (ว่างได้), slip = รูปสลิป
+function emptyStudent(){ return { sid: uid(), name:"", back:"", num:"", shirt:"", pants:"", amount:"", slip:"" }; }
+function newOrder(from, id){
+  return {
+    id: id || uid(),
+    name: "",
+    info: {
+      teacher: from ? from.info.teacher : "",
+      school: from ? from.info.school : "",
+      klass: "",
+      shop: from ? from.info.shop : "",
+      date: today(),
+      price: ""
+    },
+    students: [ emptyStudent() ],
+    qr: ""
+  };
+}
+
+let state = null;
+let mode = "member";
+let memIndex = null;
+const DOC_STATE = "app/state";
+let db = null, shared = false;
+let mediaMap = {}, mediaReady = false, lastDoc = null;
+let seq = 0, savedSeq = 0, flushTimer = null, inFlight = false;
+
+function blankState(){ const o = newOrder(null, "o1"); return { activeId: o.id, orders: [o] }; }
+function setStatus(m){ $("status").textContent = m; }
+function setBanner(t){ const b = $("modeBanner"); b.textContent = t; b.hidden = !t; }
+
+// ข้อมูลในเครื่องนี้ (ใช้เมื่อยังไม่ได้เข้าสู่ระบบ)
+function load(){
+  try{
+    const s = JSON.parse(localStorage.getItem(KEY));
+    if (s && Array.isArray(s.orders) && s.orders.length){ state = s; return; }
+  }catch(e){}
+  try{
+    const v1 = JSON.parse(localStorage.getItem(OLD_KEY));
+    if (v1 && v1.info && Array.isArray(v1.students)){
+      state = { activeId:"o1", orders:[{ id:"o1", name:"", info:v1.info, students:v1.students.map(x => ({ ...emptyStudent(), ...x, sid: x.sid || uid() })), qr: v1.qr || "" }] };
+      return;
+    }
+  }catch(e){}
+  state = blankState();
+}
+
+// บันทึก: ถ้าเข้าสู่ระบบจะเขียนขึ้นเซิร์ฟเวอร์ (รวมเป็นชุดเดียว หน่วง 0.5 วินาที) ถ้าไม่ จะเก็บในเครื่อง
+function save(){
+  seq++;
+  if (!shared){
+    try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){ setStatus("บันทึกไม่สำเร็จ: เนื้อที่ในเบราว์เซอร์เต็ม"); }
+    return;
+  }
+  clearTimeout(flushTimer);
+  flushTimer = setTimeout(flush, 500);
+}
+// รูปสลิปและ QR แยกเก็บเป็นเอกสารของตัวเอง เอกสารหลักเก็บแค่ว่ามีรูปหรือไม่
+function toDoc(){
+  return state.orders.map(o => ({
+    id: o.id, name: o.name || "", info: o.info,
+    students: o.students.map(s => ({ ...s, slip: s.slip ? "1" : "" })),
+    qr: o.qr ? "1" : ""
+  }));
+}
+async function flush(){
+  if (inFlight){ flushTimer = setTimeout(flush, 300); return; }
+  const mySeq = seq;
+  inFlight = true;
+  try{
+    await db.doc(DOC_STATE).set({ orders: toDoc() });
+    savedSeq = mySeq;
+    if (seq === mySeq) setStatus("บันทึกแล้ว");
+    else flushTimer = setTimeout(flush, 300);
+  }catch(e){
+    setStatus("บันทึกไม่สำเร็จ: " + (e.message || e.code || "ข้อผิดพลาด"));
+  }finally{
+    inFlight = false;
+  }
+}
+// ไม่ทับข้อมูลที่กำลังบันทึกหรือแก้ค้างอยู่ จนกว่าจะบันทึกเสร็จ
+function busy(){ return shared && (seq !== savedSeq || inFlight); }
+
+async function putMedia(id, data){
+  if (data.length > 240000) throw new Error("รูปใหญ่เกินไป ลองเลือกรูปที่เล็กลง");
+  mediaMap[id] = data;
+  if (shared){
+    try{ await db.doc("media/" + id).set({ data }); }
+    catch(e){ setStatus("เก็บรูปไม่สำเร็จ: " + (e.message || e.code)); }
+  }
+}
+function delMedia(id){
+  delete mediaMap[id];
+  if (shared){ db.doc("media/" + id).delete().catch(() => {}); }
+}
+
+// ประกอบข้อมูลกลับจากเอกสาร + รูปที่เก็บแยก (ถ้ารูปยังมาไม่ถึง ใช้ค่าที่อยู่ในหน้านี้อยู่แล้ว)
+function hydrate(list){
+  const prevSlip = {}, prevQr = {};
+  (state && state.orders || []).forEach(o => {
+    if (o.qr) prevQr[o.id] = o.qr;
+    o.students.forEach(s => { if (s.slip && s.sid) prevSlip[s.sid] = s.slip; });
+  });
+  return list.map(o => ({
+    id: o.id, name: o.name || "",
+    info: { ...newOrder(null).info, ...(o.info || {}) },
+    students: (o.students || []).map(s => {
+      const st = { ...emptyStudent(), ...s };
+      if (!st.sid) st.sid = uid();
+      st.slip = s.slip ? (mediaMap["slip-" + st.sid] || prevSlip[st.sid] || "1") : "";
+      return st;
+    }),
+    qr: mediaMap["qr-" + o.id] || (o.qr ? (prevQr[o.id] || "1") : "")
+  }));
+}
+function applyLastDoc(){
+  if (!mediaReady || !lastDoc || !Array.isArray(lastDoc.orders) || busy()) return;
+  state.orders = hydrate(lastDoc.orders);
+  if (!state.orders.length) state = blankState();
+  if (!state.orders.some(o => o.id === state.activeId)) state.activeId = state.orders[0].id;
+  syncInfoInputs(); renderRows(); renderAll();
+}
+function onStateSnap(snap){
+  if (busy()) return;
+  if (!snap.exists){
+    if (snap.metadata && snap.metadata.fromCache) return;
+    if (!mediaReady) return;
+    state = blankState(); lastDoc = null;
+    save(); syncInfoInputs(); renderRows(); renderAll();
+    return;
+  }
+  lastDoc = snap.data();
+  applyLastDoc();
+}
+function onMediaSnap(snap){
+  mediaMap = {};
+  snap.docs.forEach(d => { const v = d.data(); if (v && v.data) mediaMap[d.id] = v.data; });
+  mediaReady = true;
+  applyLastDoc();
+}
+async function initDb(){
+  try{ db = window.claude ? await window.claude.use("db") : null; }catch(e){ db = null; }
+  if (!db){
+    shared = false;
+    setBanner("เชื่อมต่อฐานข้อมูลไม่สำเร็จ ข้อมูลจะเก็บเฉพาะในเครื่องนี้ ลองโหลดหน้าใหม่อีกครั้ง");
+    return;
+  }
+  shared = true;
+  setBanner("");
+  setStatus("กำลังโหลดข้อมูลร่วม...");
+  db.collection("media").onSnapshot(onMediaSnap, e => setStatus("โหลดรูปไม่สำเร็จ: " + (e.message || e.code)));
+  db.doc(DOC_STATE).onSnapshot(onStateSnap, e => setStatus("เชื่อมต่อข้อมูลร่วมไม่สำเร็จ: " + (e.message || e.code)));
+  setTimeout(() => { if (!lastDoc && !mediaReady) setStatus("ยังโหลดข้อมูลร่วมไม่ได้ ข้อมูลอาจยังไม่เป็นปัจจุบัน"); }, 10000);
+}
+
+function cur(){
+  return state.orders.find(o => o.id === state.activeId) || state.orders[0];
+}
+
+function esc(s){
+  return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+function isFilled(s){ return s.name.trim() !== "" || s.shirt || s.pants; }
+function filled(){ return cur().students.filter(isFilled); }
+function isComplete(s){ return s.name.trim() !== "" && s.shirt && s.pants; }
+
+// ยอดที่จ่ายจริงของคนหนึ่งคน (ไม่เกินราคาต่อชุด)
+// ข้อมูลเก่าที่ติ๊ก "จ่ายแล้ว" ไว้จะนับเป็นจ่ายครบ
+function paidOf(s, price){
+  if (s.cash) return price; // จ่ายเงินสดแล้ว ถือว่าจ่ายครบ
+  if (s.amount !== undefined && s.amount !== ""){
+    return Math.min(Math.max(Number(s.amount) || 0, 0), price);
+  }
+  return s.paid ? price : 0;
+}
+// สถานะการจ่าย: ยอดครบ + มีสลิป = จ่ายครบ (อัตโนมัติ)
+function payStatus(s, price){
+  if (!isComplete(s)) return "";
+  const p = paidOf(s, price);
+  if (price > 0 && p >= price) return (s.slip || s.cash) ? "full" : "wait";
+  if (p > 0) return "partial";
+  return "none";
+}
+
+function payInfo(){
+  const o = cur();
+  const price = Number(o.info.price) || 0;
+  const comp = filled().filter(isComplete);
+  let paidAmt = 0, fullN = 0, waitN = 0, partialN = 0, noneN = 0;
+  const notFull = [];
+  for (const s of comp){
+    paidAmt += paidOf(s, price);
+    const st = payStatus(s, price);
+    if (st === "full") fullN++;
+    else {
+      notFull.push(s.name.trim());
+      if (st === "wait") waitN++;
+      else if (st === "partial") partialN++;
+      else noneN++;
+    }
+  }
+  const total = comp.length * price;
+  return { price, sets: comp.length, total, paidAmt, dueAmt: total - paidAmt, fullN, waitN, partialN, noneN, notFull };
+}
+function baht(n){ return Number(n).toLocaleString("th-TH") + " บาท"; }
+
+function thaiDate(v){
+  if (!v) return "-";
+  const [y,m,d] = v.split("-").map(Number);
+  if (!y || !m || !d) return v;
+  return new Date(y, m-1, d).toLocaleDateString("th-TH", {year:"numeric", month:"long", day:"numeric"});
+}
+
+function sizeOptions(selected, list){
+  const opts = selected && !list.includes(selected) ? [...list, selected] : list;
+  return `<option value="">เลือก</option>` +
+    opts.map(s => `<option value="${s}"${s===selected?" selected":""}>${s}</option>`).join("");
+}
+
+function amountField(s, price){
+  if (s.amount !== undefined && s.amount !== "") return s.amount;
+  return s.paid && price ? String(price) : "";
+}
+
+function renderOrderSel(){
+  $("orderSel").innerHTML = state.orders.map((o, i) =>
+    `<option value="${o.id}"${o.id===state.activeId?" selected":""}>${esc(o.name) || "ออเดอร์ที่ " + (i+1)}</option>`).join("");
+}
+
+let openIdx = null;
+function telNumber(p){
+  const d = String(p || "").replace(/[^\d+]/g, "");
+  return d.replace(/\D/g, "").length >= 9 ? d : "";
+}
+function renderRows(){
+  const o = cur();
+  const price = Number(o.info.price) || 0;
+  if (openIdx !== null && !o.students[openIdx]) openIdx = null;
+  $("rows").innerHTML = o.students.map((st, i) => {
+    const status = payStatus(st, price);
+    if (i !== openIdx){
+      return `<button class="btn" data-open="${i}" style="width:100%;display:flex;justify-content:space-between;align-items:center;gap:8px;text-align:left">
+        <span>${i+1}. ${esc(st.name) || "(ยังไม่มีชื่อ)"}</span>
+        ${status ? `<span class="badge ${status}">${STATUS_LABEL[status]}</span>` : ""}
+      </button>`;
+    }
+    return `
+    <div class="row" data-i="${i}">
+      <div class="nm">
+        <label for="n-${i}">ชื่อ-สกุล (ลำดับ ${i+1})</label>
+        <input id="n-${i}" data-f="name" value="${esc(st.name)}" placeholder="ชื่อ-สกุล" autocomplete="off">
+        <label for="ph-${i}" style="margin-top:8px">เบอร์โทรติดต่อ</label>
+        <input id="ph-${i}" data-f="phone" inputmode="tel" value="${esc(st.phone || "")}" placeholder="08x-xxx-xxxx" autocomplete="off">
+        ${telNumber(st.phone) ? `<a class="btn" href="tel:${telNumber(st.phone)}" style="display:inline-flex;align-items:center;margin-top:8px;color:var(--ok);font-weight:700">โทรหา ${esc(st.phone)}</a>` : ""}
+      </div>
+      <div class="bk">
+        <label for="b-${i}">ชื่อหลังเสื้อ</label>
+        <input id="b-${i}" data-f="back" value="${esc(st.back)}" placeholder="เช่น SOMCHAI" autocomplete="off">
+      </div>
+      <div class="no">
+        <label for="m-${i}">เบอร์หลังเสื้อ</label>
+        <input id="m-${i}" data-f="num" inputmode="numeric" value="${esc(st.num)}" placeholder="เช่น 7" autocomplete="off">
+      </div>
+      <div class="sel">
+        <div><label for="s-${i}">ไซส์เสื้อ</label><select id="s-${i}" data-f="shirt">${sizeOptions(st.shirt, SHIRT_SIZES)}</select></div>
+        <div><label for="p-${i}">ไซส์กางเกง</label><select id="p-${i}" data-f="pants">${sizeOptions(st.pants, PANTS_SIZES)}</select></div>
+      </div>
+      <div class="pay">
+        <div class="amt">
+          <label for="a-${i}">ยอดที่โอน (บาท)</label>
+          <input id="a-${i}" type="number" min="0" inputmode="decimal" data-f="amount" value="${esc(amountField(st, price))}" placeholder="${price || "0"}">
+        </div>
+        <label class="chk"><input type="checkbox" data-f="cash"${st.cash ? " checked" : ""}> จ่ายเงินสดแล้ว</label>
+        ${status ? `<span class="badge ${status}">${STATUS_LABEL[status]}</span>` : ""}
+        <div class="slip">
+          ${st.slip
+            ? `<a href="${st.slip}" target="_blank" rel="noopener" aria-label="ดูสลิปของ ${esc(st.name)}"><img src="${st.slip}" class="slip-th" alt="สลิป"></a>
+               <button class="btn danger" data-slipdel="${i}">ลบสลิป</button>`
+            : `<label class="btn slip-btn" for="sl-${i}">แนบสลิป</label>
+               <input id="sl-${i}" type="file" accept="image/*" data-slipadd="${i}" hidden>`}
+        </div>
+        <button class="btn" data-open="${i}">ปิด</button>
+        <button class="btn danger" data-del="${i}" aria-label="ลบรายการนี้">ลบ</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function countSize(key, size){
+  return filled().filter(s => s[key] === size).length;
+}
+
+function summaryHTML(){
+  const p = payInfo();
+  const rows = ALL_SIZES.map(sz => {
+    const sh = countSize("shirt", sz), pa = countSize("pants", sz);
+    return `<tr><td>${sz}</td><td class="c">${sh}</td><td class="c">${pa}</td></tr>`;
+  }).join("");
+  const totalShirt = filled().filter(s => s.shirt).length;
+  const totalPants = filled().filter(s => s.pants).length;
+  return `
+    <table class="tbl">
+      <thead><tr><th>ไซส์</th><th class="c">เสื้อ (ตัว)</th><th class="c">กางเกง (ตัว)</th></tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr><td>รวม</td><td class="c">${totalShirt}</td><td class="c">${totalPants}</td></tr></tfoot>
+    </table>
+    <p class="total">จำนวนชุด ${p.sets} ชุด · ยอดรวม ${p.price ? baht(p.total) : "-"}${p.price ? ` (ชุดละ ${baht(p.price)})` : ""}</p>
+    <div class="paysum">
+      <p><b>${STATUS_LABEL.full}</b> ${p.fullN} ชุด</p>
+      <p><b>${STATUS_LABEL.wait}</b> ${p.waitN} ชุด</p>
+      <p><b>${STATUS_LABEL.partial}</b> ${p.partialN} ชุด · <b>${STATUS_LABEL.none}</b> ${p.noneN} ชุด</p>
+      ${p.price ? `<p><b>ยอดที่รับแล้ว</b> ${baht(p.paidAmt)} · <b>ยอดค้าง</b> ${baht(p.dueAmt)}</p>` : ""}
+      ${p.notFull.length ? `<p class="note" style="margin:0">ยังไม่จ่ายครบ: ${esc(p.notFull.join(", "))}</p>` : ""}
+    </div>`;
+}
+
+function renderSummary(){
+  $("summary").innerHTML = summaryHTML();
+}
+
+function renderWarn(){
+  const list = filled();
+  const incomplete = list.filter(s => !isComplete(s)).length;
+  $("warn").innerHTML = incomplete
+    ? `<div class="warn">มี ${incomplete} คนที่ยังกรอกไม่ครบ (ต้องมีชื่อ ไซส์เสื้อ และไซส์กางเกง)</div>`
+    : "";
+}
+
+function renderDock(){
+  const p = payInfo();
+  const n = filled().length;
+  $("dockStudents").textContent = `สมาชิก ${n} คน · ${p.sets} ชุด · จ่ายครบ ${p.fullN} ชุด`;
+  $("dockTotal").textContent = p.price ? `รวม ${baht(p.total)} · ค้าง ${baht(p.dueAmt)}` : "ยังไม่ได้ใส่ราคา";
+  $("countHint").textContent = n ? `${n} คน` : "";
+}
+
+function renderSheet(){
+  const o = cur();
+  const info = o.info;
+  const list = filled();
+  const price = Number(info.price) || 0;
+  const body = list.length
+    ? list.map((s, i) => `<tr>
+        <td class="c">${i+1}</td>
+        <td>${esc(s.name) || "-"}</td>
+        <td>${esc(s.back) || "-"}</td>
+        <td class="c">${esc(s.num) || "-"}</td>
+        <td class="c">${s.shirt || "-"}</td>
+        <td class="c">${s.pants || "-"}</td>
+        <td class="c">${STATUS_LABEL[payStatus(s, price)] || "-"}</td></tr>`).join("")
+    : `<tr><td colspan="7" class="empty">ยังไม่มีรายชื่อ</td></tr>`;
+  const title = o.name ? esc(o.name) : "ใบสั่งชุดกีฬา";
+  $("sheet").innerHTML = `
+    <h2>${title}</h2>
+    <p class="sub">${esc(info.school) || "&nbsp;"}</p>
+    <div class="info">
+      <div><b>ผู้สั่ง:</b> ${esc(info.teacher) || "-"}</div>
+      <div><b>ชั้น / รุ่น:</b> ${esc(info.klass) || "-"}</div>
+      <div><b>ถึงร้าน:</b> ${esc(info.shop) || "-"}</div>
+      <div><b>วันที่สั่ง:</b> ${thaiDate(info.date)}</div>
+      <div><b>ราคาต่อชุด:</b> ${info.price ? baht(info.price) : "-"}</div>
+    </div>
+    <h3>รายชื่อสมาชิก (${list.length} คน)</h3>
+    <table>
+      <thead><tr><th class="c" style="width:50px">ลำดับ</th><th>ชื่อ-สกุล</th><th>ชื่อหลังเสื้อ</th><th class="c">เบอร์</th><th class="c">ไซส์เสื้อ</th><th class="c">ไซส์กางเกง</th><th class="c">การจ่าย</th></tr></thead>
+      <tbody>${body}</tbody>
+    </table>
+    <h3>สรุปจำนวนที่สั่ง</h3>
+    ${summaryHTML()}
+    ${o.qr ? `<div class="qr-box"><img src="${o.qr}" alt="QR Code ชำระเงิน"><p>สแกนเพื่อชำระเงิน</p></div>` : ""}`;
+}
+
+function renderQrPreview(){
+  $("qrPreview").innerHTML = cur().qr
+    ? `<img src="${cur().qr}" alt="QR Code" class="qr-thumb"><button class="btn danger" id="qrRemove">ลบ QR Code</button>`
+    : `<p class="note">ยังไม่มี QR Code</p>`;
+}
+
+function syncInfoInputs(){
+  const o = cur();
+  document.querySelectorAll("#info [data-k]").forEach(el => el.value = o.info[el.dataset.k] || "");
+  document.querySelectorAll("#info [data-o]").forEach(el => el.value = o[el.dataset.o] || "");
+}
+
+function refresh(){
+  save();
+  renderAll();
+}
+function renderAll(){
+  if (mode === "member") renderMember();
+  renderOrderSel();
+  renderSummary();
+  renderWarn();
+  renderSheet();
+  renderQrPreview();
+  renderDock();
+}
+
+function switchOrder(id){
+  state.activeId = id;
+  openIdx = null;
+  syncInfoInputs(); renderRows(); refresh();
+}
+
+/* ---------- Events ---------- */
+$("orderSel").addEventListener("change", e => switchOrder(e.target.value));
+
+$("newOrder").addEventListener("click", () => {
+  const o = newOrder(cur());
+  state.orders.push(o);
+  state.activeId = o.id;
+  syncInfoInputs(); renderRows(); refresh();
+  $("o-name").focus();
+  $("status").textContent = "สร้างออเดอร์ใหม่แล้ว (คัดลอกชื่อผู้สั่ง ทีม และร้านมาให้)";
+});
+
+$("delOrder").addEventListener("click", () => {
+  const o = cur();
+  if (!confirm(`ลบออเดอร์ "${o.name || "ไม่มีชื่อ"}" และรายชื่อทั้งหมดในออเดอร์นี้ใช่ไหม`)) return;
+  o.students.forEach(s => s.sid && delMedia("slip-" + s.sid));
+  if (o.qr) delMedia("qr-" + o.id);
+  state.orders = state.orders.filter(x => x.id !== o.id);
+  if (!state.orders.length){ state.orders.push(newOrder(null)); }
+  state.activeId = state.orders[0].id;
+  syncInfoInputs(); renderRows(); refresh();
+  $("status").textContent = "ลบออเดอร์แล้ว";
+});
+
+$("info").addEventListener("input", e => {
+  const o = cur();
+  if (e.target.dataset.o){ o[e.target.dataset.o] = e.target.value; refresh(); return; }
+  const k = e.target.dataset.k;
+  if (k){
+    o.info[k] = e.target.value;
+    if (k === "price") renderRows();
+    refresh();
+  }
+});
+
+// ระหว่างพิมพ์ไม่วาดแถวใหม่ เพื่อไม่ให้คีย์บอร์ดหลุด
+$("rows").addEventListener("input", e => {
+  const f = e.target.dataset.f;
+  const row = e.target.closest(".row");
+  if (!f || !row || e.target.type === "checkbox") return;
+  cur().students[+row.dataset.i][f] = e.target.value;
+  refresh();
+});
+// เมื่อเลือกไซส์หรือกรอกยอดเสร็จ วาดแถวใหม่ให้ป้ายสถานะการจ่ายอัปเดต
+$("rows").addEventListener("change", e => {
+  const f = e.target.dataset.f;
+  const row = e.target.closest(".row");
+  if (!row) return;
+  const st = cur().students[+row.dataset.i];
+  if (f === "cash"){
+    // ติ๊กจ่ายเงินสด: ใส่ยอดเป็นราคาต่อชุดให้ และถือว่าจ่ายครบ
+    st.cash = e.target.checked;
+    const price = Number(cur().info.price) || 0;
+    if (st.cash && price > 0) st.amount = String(price);
+    renderRows(); refresh();
+    $("status").textContent = st.cash ? "บันทึกการจ่ายเงินสดแล้ว" : "ยกเลิกการจ่ายเงินสดแล้ว";
+    return;
+  }
+  if (!["shirt","pants","amount","phone"].includes(f)) return;
+  st[f] = e.target.value;
+  renderRows(); refresh();
+});
+
+$("rows").addEventListener("click", e => {
+  const op = e.target.closest("[data-open]");
+  if (op){
+    const idx = +op.dataset.open;
+    openIdx = openIdx === idx ? null : idx;
+    renderRows();
+    return;
+  }
+  const slipDel = e.target.dataset.slipdel;
+  if (slipDel !== undefined){
+    const st0 = cur().students[+slipDel];
+    delMedia("slip-" + st0.sid);
+    st0.slip = "";
+    renderRows(); refresh();
+    $("status").textContent = "ลบสลิปแล้ว";
+    return;
+  }
+  const del = e.target.dataset.del;
+  if (del === undefined) return;
+  const students = cur().students;
+  students.splice(+del, 1);
+  if (!students.length) students.push(emptyStudent());
+  openIdx = null;
+  renderRows(); refresh();
+});
+
+$("addBtn").addEventListener("click", () => {
+  cur().students.push(emptyStudent());
+  openIdx = cur().students.length - 1;
+  renderRows(); refresh();
+  const inputs = document.querySelectorAll("#rows .nm input");
+  const last = inputs[inputs.length-1];
+  if (last){ last.focus(); last.scrollIntoView({ behavior:"smooth", block:"center" }); }
+});
+
+$("rows").addEventListener("change", async e => {
+  const idx = e.target.dataset.slipadd;
+  if (idx === undefined) return;
+  const file = e.target.files && e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  try{
+    const o = cur();
+    const st = o.students[+idx];
+    st.sid = st.sid || uid();
+    st.slip = await shrinkImage(file, 800, "image/jpeg", 0.7);
+    await putMedia("slip-" + st.sid, st.slip);
+    const price = Number(o.info.price) || 0;
+    if (st.amount === undefined || st.amount === ""){
+      if (price > 0) st.amount = String(price);
+    }
+    renderRows(); refresh();
+    $("status").textContent = price > 0
+      ? "แนบสลิปแล้ว ระบบเช็คการจ่ายจากยอดที่โอน (แก้ยอดได้ถ้าไม่ตรง)"
+      : "แนบสลิปแล้ว กรุณาใส่ราคาต่อชุดก่อน ระบบจึงจะเช็คการจ่ายอัตโนมัติ";
+  }catch(err){
+    $("status").textContent = "อ่านรูปสลิปไม่สำเร็จ ลองเลือกไฟล์รูปอื่น";
+  }
+});
+
+function normSize(v, list){
+  const u = String(v ?? "").toUpperCase().replace(/\s+/g, "");
+  return list.includes(u) ? u : "";
+}
+
+$("bulkApply").addEventListener("click", () => {
+  const lines = $("bulkText").value.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const added = [];
+  for (const line of lines){
+    const [name = "", shirt = "", pants = "", back = "", num = ""] = line.split(/[,\t]/).map(p => p.trim());
+    if (!name) continue;
+    added.push({ name, shirt: normSize(shirt, SHIRT_SIZES), pants: normSize(pants, PANTS_SIZES), back, num, amount:"", slip:"", sid: uid() });
+  }
+  if (!added.length){
+    $("status").textContent = "ไม่พบรายการที่จะเพิ่ม ลองใส่แบบ: ชื่อ, ไซส์เสื้อ, ไซส์กางเกง";
+    return;
+  }
+  const students = cur().students;
+  if (students.length === 1 && !isFilled(students[0])) cur().students = [];
+  cur().students.push(...added);
+  $("bulkText").value = "";
+  renderRows(); refresh();
+  $("status").textContent = `เพิ่มสมาชิก ${added.length} คนแล้ว`;
+});
+
+$("clearBtn").addEventListener("click", () => {
+  if (!confirm("ล้างรายชื่อสมาชิกในออเดอร์นี้ทั้งหมดใช่ไหม (ข้อมูลการสั่งและ QR Code จะยังอยู่)")) return;
+  cur().students = [emptyStudent()];
+  openIdx = null;
+  renderRows(); refresh();
+  $("status").textContent = "ล้างรายชื่อแล้ว";
+});
+
+/* ---------- QR Code ---------- */
+$("qrFile").addEventListener("change", async e => {
+  const file = e.target.files && e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  try{
+    cur().qr = await shrinkImage(file, 600, "image/jpeg", 0.9);
+    await putMedia("qr-" + cur().id, cur().qr);
+    refresh();
+    $("status").textContent = "เพิ่ม QR Code แล้ว";
+  }catch(err){
+    $("status").textContent = "อ่านรูปไม่สำเร็จ ลองเลือกไฟล์รูปอื่น";
+  }
+});
+
+$("qrPreview").addEventListener("click", e => {
+  if (e.target.id === "qrRemove"){
+    delMedia("qr-" + cur().id);
+    cur().qr = "";
+    refresh();
+    $("status").textContent = "ลบ QR Code แล้ว";
+  }
+});
+
+function shrinkImage(file, max, type = "image/png", quality = 0.92){
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, max / Math.max(img.width, img.height));
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.width * scale);
+      c.height = Math.round(img.height * scale);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      resolve(c.toDataURL(type, quality));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("load")); };
+    img.src = url;
+  });
+}
+
+/* ---------- Export ---------- */
+function fileBase(){
+  const o = cur();
+  const k = (o.name || o.info.klass || "ออเดอร์").replace(/[\\/:*?"<>|]/g, "-");
+  return `สั่งชุดกีฬา_${k}_${o.info.date || today()}`;
+}
+
+function countSizeOf(list, key, size){ return list.filter(s => s[key] === size).length; }
+
+$("xlsxBtn").addEventListener("click", () => {
+  if (typeof XLSX === "undefined"){
+    $("status").textContent = "โหลดตัวสร้างไฟล์ Excel ไม่สำเร็จ ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต";
+    return;
+  }
+  const list = filled();
+  if (!list.length){ $("status").textContent = "ยังไม่มีรายชื่อให้ส่งออก"; return; }
+  const o = cur();
+  const info = o.info;
+  const p = payInfo();
+
+  const sheet1 = [
+    [o.name ? `ใบสั่งชุดกีฬา: ${o.name}` : "ใบสั่งชุดกีฬา"],
+    [],
+    ["ทีม / โรงเรียน", info.school],
+    ["ผู้สั่ง", info.teacher],
+    ["ชั้น / รุ่น", info.klass],
+    ["ถึงร้าน", info.shop],
+    ["วันที่สั่ง", thaiDate(info.date)],
+    ["ราคาต่อชุด (บาท)", info.price || "-"],
+    [],
+    ["ลำดับ", "ชื่อ-สกุล", "ชื่อหลังเสื้อ", "เบอร์หลังเสื้อ", "ไซส์เสื้อ", "ไซส์กางเกง", "ยอดที่โอน (บาท)", "การจ่าย"],
+    ...list.map((s, i) => [
+      i+1, s.name, s.back, s.num, s.shirt, s.pants,
+      isComplete(s) ? paidOf(s, p.price) : 0,
+      STATUS_LABEL[payStatus(s, p.price)] || "-"
+    ]),
+    [],
+    ["รวมสมาชิก", list.length]
+  ];
+  const sheet2 = [
+    ["ไซส์", "เสื้อ (ตัว)", "กางเกง (ตัว)"],
+    ...ALL_SIZES.map(sz => [sz, countSizeOf(list, "shirt", sz), countSizeOf(list, "pants", sz)]),
+    ["รวม", list.filter(s => s.shirt).length, list.filter(s => s.pants).length],
+    [],
+    ["จำนวนชุด (ครบเสื้อ+กางเกง)", p.sets],
+    ["ยอดรวม (บาท)", p.total],
+    ["จ่ายครบแล้ว (ชุด)", p.fullN],
+    ["ยอดครบ รอสลิป (ชุด)", p.waitN],
+    ["จ่ายไม่ครบ (ชุด)", p.partialN],
+    ["ยังไม่จ่าย (ชุด)", p.noneN],
+    ["ยอดที่รับแล้ว (บาท)", p.paidAmt],
+    ["ยอดค้าง (บาท)", p.dueAmt],
+    ["ยังไม่จ่ายครบ", p.notFull.join(", ")]
+  ];
+
+  const ws1 = XLSX.utils.aoa_to_sheet(sheet1);
+  ws1["!cols"] = [{wch:10},{wch:28},{wch:16},{wch:14},{wch:12},{wch:14},{wch:16},{wch:18}];
+  ws1["!merges"] = [{ s:{r:0,c:0}, e:{r:0,c:7} }];
+  const ws2 = XLSX.utils.aoa_to_sheet(sheet2);
+  ws2["!cols"] = [{wch:30},{wch:16},{wch:18}];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws1, "รายชื่อ");
+  XLSX.utils.book_append_sheet(wb, ws2, "สรุปส่งร้าน");
+  deliverFile(fileBase() + ".xlsx", XLSX.write(wb, { bookType: "xlsx", type: "array" }));
+  $("status").textContent = "ดาวน์โหลดไฟล์ Excel แล้ว";
+});
+
+
+// ส่งไฟล์ให้ผู้ชม: ใช้ความสามารถ downloads ถ้ามี ถ้าบันทึกไม่ได้จะแสดงภาพให้กดค้างเพื่อบันทึกเอง
+async function deliverFile(filename, data){
+  let dl = null;
+  try{ dl = window.claude ? await window.claude.use("downloads") : null; }catch(e){ dl = null; }
+  if (dl){
+    try{
+      await dl.save({ filename, data });
+      setStatus("บันทึกไฟล์แล้ว: " + filename);
+      return;
+    }catch(e){
+      if (e && e.code === "declined"){ setStatus("ยกเลิกการบันทึกไฟล์"); return; }
+      setStatus("บันทึกไฟล์ไม่สำเร็จ (" + (e.code || "error") + ") ลองดูภาพแทน");
+    }
+  } else {
+    setStatus("การดาวน์โหลดไม่พร้อมในมุมมองนี้ ลองดูภาพแทน");
+  }
+  if (filename.endsWith(".png")) showImageForSave(data, filename);
+}
+// แสดงภาพเต็มจอให้กดค้างเพื่อบันทึกลงเครื่อง (ใช้เมื่อดาวน์โหลดโดยตรงไม่ได้)
+function showImageForSave(blob, filename){
+  const reader = new FileReader();
+  reader.onload = () => {
+    let box = document.getElementById("imgView");
+    if (!box){
+      box = document.createElement("div");
+      box.id = "imgView";
+      box.style.cssText = "position:fixed;inset:0;background:#000d;z-index:999;overflow:auto;padding:16px;text-align:center";
+      box.innerHTML = '<p style="color:#fff;font-size:15px;margin:0 0 10px">กดค้างที่ภาพ แล้วเลือก "บันทึกรูปภาพ"</p>' +
+        '<img id="imgViewImg" style="max-width:100%;height:auto;background:#fff;border-radius:8px"><br>' +
+        '<button id="imgViewClose" class="btn" style="margin-top:12px">ปิด</button>';
+      document.body.appendChild(box);
+      document.getElementById("imgViewClose").addEventListener("click", () => box.remove());
+    }
+    document.getElementById("imgViewImg").src = reader.result;
+    box.hidden = false;
+  };
+  reader.readAsDataURL(blob);
+}
+
+// ถ่ายภาพจากสำเนาที่มีความกว้างคงที่ 720px เสมอ ไม่ขึ้นกับความกว้างของหน้าจอที่ใช้อยู่
+async function captureSheet(){
+  const holder = document.createElement("div");
+  holder.style.cssText = "position:fixed;left:-10000px;top:0;width:720px;background:#ffffff";
+  const clone = $("sheet").cloneNode(true);
+  clone.style.width = "720px";
+  clone.style.maxWidth = "720px";
+  clone.style.margin = "0";
+  holder.appendChild(clone);
+  document.body.appendChild(holder);
+  try{
+    return await html2canvas(clone, { scale: 2, backgroundColor: "#ffffff", width: 720, windowWidth: 720 });
+  } finally {
+    holder.remove();
+  }
+}
+
+// ข้อความแบบตารางหนึ่งบรรทัดต่อหนึ่งคน (คั่นด้วยแท็บ)
+function orderAsText(){
+  const o = cur(), info = o.info, p = payInfo();
+  const list = filled();
+  const lines = [
+    o.name ? `ใบสั่งชุดกีฬา: ${o.name}` : "ใบสั่งชุดกีฬา",
+    `ทีม/โรงเรียน: ${info.school || "-"}`,
+    `ผู้สั่ง: ${info.teacher || "-"}`,
+    `ถึงร้าน: ${info.shop || "-"}`,
+    `วันที่สั่ง: ${thaiDate(info.date)}`,
+    `ราคาต่อชุด: ${info.price ? baht(info.price) : "-"}`,
+    "",
+    ["ลำดับ","ชื่อ-สกุล","ชื่อหลังเสื้อ","เบอร์","ไซส์เสื้อ","ไซส์กางเกง","การจ่าย"].join("\t"),
+    ...list.map((s, i) => [i+1, s.name, s.back, s.num, s.shirt, s.pants, STATUS_LABEL[payStatus(s, p.price)] || "-"].join("\t")),
+    "",
+    ["ไซส์","เสื้อ (ตัว)","กางเกง (ตัว)"].join("\t"),
+    ...ALL_SIZES.map(sz => [sz, countSizeOf(list, "shirt", sz), countSizeOf(list, "pants", sz)].join("\t")),
+    ["รวม", list.filter(s => s.shirt).length, list.filter(s => s.pants).length].join("\t"),
+    "",
+    `จำนวนชุด ${p.sets} ชุด · ยอดรวม ${p.price ? baht(p.total) : "-"} · ค้างจ่าย ${p.price ? baht(p.dueAmt) : "-"}`
+  ];
+  return lines.join("\n");
+}
+
+// ไม่ใช้ตัวสร้างภาพอัตโนมัติ (ทำงานไม่เสถียรในมุมมอง Artifact) แสดงใบสั่งเต็มจอให้แคปหน้าจอแทน
+$("pngBtn").addEventListener("click", () => {
+  if (!filled().length){ setStatus("ยังไม่มีรายชื่อให้ส่งออก"); return; }
+  let box = document.getElementById("sheetFull");
+  if (!box){
+    box = document.createElement("div");
+    box.id = "sheetFull";
+    box.style.cssText = "position:fixed;inset:0;background:#000c;z-index:999;overflow:auto;padding:12px";
+    box.innerHTML = '<p style="color:#fff;margin:0 0 10px;font-size:15px">แคปหน้าจอ หรือกดค้างเพื่อบันทึกใบสั่งนี้เป็นภาพ</p>' +
+      '<div id="sheetFullBody" style="background:#fff;border-radius:8px"></div>' +
+      '<button id="sheetFullClose" class="btn" style="margin-top:12px">ปิด</button>';
+    document.body.appendChild(box);
+    document.getElementById("sheetFullClose").addEventListener("click", () => box.remove());
+  }
+  const copy = $("sheet").cloneNode(true);
+  copy.style.maxWidth = "100%";
+  const body = document.getElementById("sheetFullBody");
+  body.innerHTML = "";
+  body.appendChild(copy);
+  // ข้อความแบบตารางที่คัดลอกทั้งหมดในครั้งเดียว (วางในไลน์หรือ Excel ได้)
+  let tbox = document.getElementById("copyText");
+  if (!tbox){
+    tbox = document.createElement("textarea");
+    tbox.id = "copyText";
+    tbox.readOnly = true;
+    tbox.style.cssText = "width:100%;min-height:260px;margin-top:12px;font:13px/1.4 monospace;background:#fff;color:#111;border-radius:8px;padding:10px";
+    box.insertBefore(tbox, document.getElementById("sheetFullClose"));
+    const sel = document.createElement("button");
+    sel.id = "copySel";
+    sel.className = "btn primary";
+    sel.style.cssText = "margin-top:10px;margin-right:8px";
+    sel.textContent = "เลือกข้อความทั้งหมด";
+    sel.addEventListener("click", () => { tbox.focus(); tbox.select(); tbox.setSelectionRange(0, 999999); });
+    box.insertBefore(sel, document.getElementById("sheetFullClose"));
+  }
+  tbox.value = orderAsText();
+  box.hidden = false;
+  setStatus("เปิดใบสั่งเต็มจอแล้ว แคปหน้าจอเพื่อเก็บเป็นภาพ");
+});
+
+/* ---------- หน้าสมาชิก ---------- */
+function setMode(m){
+  mode = m;
+  const member = m === "member";
+  document.querySelectorAll(".wrap > *").forEach(el => {
+    if (el.id === "memberView" || el.id === "topTools") return;
+    el.style.display = member ? "none" : "";
+  });
+  document.querySelector(".dock").style.display = member ? "none" : "";
+  $("memberView").hidden = !member;
+  $("adminEntry").textContent = member ? "เข้าหน้าแอดมิน" : "หน้าแอดมิน";
+  $("adminEntry").hidden = !isOwner || !member;
+  $("viewMember").hidden = !isOwner || member;
+  if (member){ memIndex = null; renderMember(); }
+}
+function hasPhone(s){
+  const p = String(s.phone || "");
+  // เบอร์ของคนอื่นถูกซ่อนเป็น •••• ให้ดูจาก phoneOk ที่เซิร์ฟเวอร์คิดไว้แทน
+  if (p.includes("•")) return !!s.phoneOk;
+  return p.replace(/\D/g, "").length >= 9;
+}
+function memLog(s, text){
+  s.hist = s.hist || [];
+  s.hist.push({ text, at: new Date().toLocaleString("th-TH", { day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" }) });
+}
+const MEM_LABEL = { name:"ชื่อ-สกุล", back:"ชื่อหลังเสื้อ", num:"เบอร์หลังเสื้อ", phone:"เบอร์โทร", shirt:"ไซส์เสื้อ", pants:"ไซส์กางเกง" };
+function renderMember(){
+  const o = cur();
+  const price = Number(o.info.price) || 0;
+  if (memIndex !== null && !o.students[memIndex]) memIndex = null;
+  $("memberPick").hidden = memIndex !== null;
+  $("memberDetail").hidden = memIndex === null;
+  if (memIndex === null){
+    $("memberPick").innerHTML = `<h2 style="margin:0 0 10px;color:var(--navy)">เลือกชื่อของคุณ</h2>` +
+      (o.students.length ? o.students.map((s, i) => {
+        const st = payStatus(s, price);
+        return `<button class="btn" data-mi="${i}"><span>${esc(s.name) || "(ไม่มีชื่อ)"} · เสื้อ ${s.shirt || "-"} · กางเกง ${s.pants || "-"}</span><span class="badge ${st}">${STATUS_LABEL[st] || "กรอกไม่ครบ"}</span></button>`;
+      }).join("") : `<p class="note">ยังไม่มีรายชื่อ</p>`);
+    return;
+  }
+  const s = o.students[memIndex];
+  const st = payStatus(s, price);
+  const hist = (s.hist || []).map(h => `<li>${esc(h.text)} <span class="note">· ${h.at}</span></li>`).join("") || "<li>ยังไม่มีการแก้ไข</li>";
+  $("memberDetail").innerHTML = `
+    <button class="btn" id="memBack" style="margin-bottom:12px">← เลือกชื่อใหม่</button>
+    <h2>${esc(s.name) || "-"}</h2>
+    <div class="fields">
+      <div><label>ชื่อ-สกุล</label><input data-mf="name" value="${esc(s.name)}"></div>
+      <div><label>ชื่อหลังเสื้อ</label><input data-mf="back" value="${esc(s.back)}"></div>
+      <div><label>เบอร์หลังเสื้อ</label><input data-mf="num" value="${esc(s.num)}"></div>
+      <div><label>เบอร์โทรติดต่อ</label><input data-mf="phone" value="${esc(s.phone || "")}" placeholder="08x-xxx-xxxx"></div>
+      <div><label>ไซส์เสื้อ</label><select data-mf="shirt">${sizeOptions(s.shirt, SHIRT_SIZES)}</select></div>
+      <div><label>ไซส์กางเกง</label><select data-mf="pants">${sizeOptions(s.pants, PANTS_SIZES)}</select></div>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <h3>การจ่ายเงิน</h3>
+      <p><span class="badge ${st}">${STATUS_LABEL[st] || "กรอกไม่ครบ"}</span></p>
+      <p>ยอดที่ต้องจ่าย <b>${price ? baht(price) : "-"}</b></p>
+      ${o.qr ? `<div style="text-align:center;margin:10px 0"><img src="${o.qr}" alt="QR ชำระเงิน" style="width:240px;max-width:100%;height:auto;background:#fff;padding:8px;border-radius:12px;border:1px solid var(--line)"><div style="margin-top:8px"><button class="btn" id="memSaveQr">บันทึกรูป QR</button></div></div>` : `<p class="note">ยังไม่มี QR ชำระเงิน แอดมินจะเพิ่มให้เร็ว ๆ นี้</p>`}
+      ${s.slip && s.slip !== "1" ? `<img src="${s.slip}" alt="สลิป" style="width:120px;border-radius:10px;margin-bottom:8px">` : s.slip ? `<p class="note" style="color:var(--ok)">แนบสลิปแล้ว (แอดมินเท่านั้นที่เห็นรูปสลิป)</p>` : `<p class="note">ยังไม่ได้แนบสลิป</p>`}
+      <div style="display:grid;gap:10px">
+        <label class="btn" for="memSlip" style="text-align:center;cursor:pointer">แนบสลิปที่โอนแล้ว</label>
+        <input id="memSlip" type="file" accept="image/*" hidden>
+        <button class="btn primary" id="memPaid" ${s.paid || !hasPhone(s) ? "disabled" : ""}>แจ้งจ่ายแล้ว</button>
+        ${hasPhone(s) ? "" : `<p class="note" style="color:var(--bad);margin:0">กรอกเบอร์โทรติดต่อก่อน จึงจะแจ้งจ่ายได้</p>`}
+      </div>
+      <p class="note">ครูจะตรวจสลิปและยืนยันการจ่ายอีกครั้ง</p>
+    </div>
+    <div class="card"><h3>ประวัติการแก้ไข</h3><ul>${hist}</ul></div>`;
+}
+let isOwner = false;
+$("adminEntry").addEventListener("click", () => setMode("teacher"));
+$("viewMember").addEventListener("click", () => setMode("member"));
+$("memberPick").addEventListener("click", e => {
+  const b = e.target.closest("button[data-mi]");
+  if (!b) return;
+  memIndex = +b.dataset.mi;
+  renderMember();
+  window.scrollTo(0, 0);
+});
+$("memberDetail").addEventListener("click", async e => {
+  if (e.target.id === "memSaveQr"){
+    const q = cur().qr;
+    if (!q) return;
+    const blob = await (await fetch(q)).blob();
+    deliverFile("QR-ชำระเงิน.png", blob);
+    return;
+  }
+  if (e.target.id === "memBack"){ memIndex = null; renderMember(); return; }
+  if (e.target.id === "memPaid"){
+    const s = cur().students[memIndex];
+    if (!hasPhone(s)) return;
+    s.paid = true;
+    memLog(s, "แจ้งจ่ายแล้ว");
+    refresh(); renderMember();
+  }
+});
+$("memberDetail").addEventListener("change", async e => {
+  if (e.target.id === "memSlip"){
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    try{
+      const s = cur().students[memIndex];
+      s.sid = s.sid || uid();
+      s.slip = await shrinkImage(file, 800, "image/jpeg", 0.7);
+      await putMedia("slip-" + s.sid, s.slip);
+      memLog(s, "แนบสลิป");
+      refresh(); renderMember();
+    }catch(err){ setStatus("อ่านรูปสลิปไม่สำเร็จ ลองเลือกไฟล์รูปอื่น"); }
+    return;
+  }
+  const f = e.target.dataset.mf;
+  if (!f) return;
+  const s = cur().students[memIndex];
+  const old = s[f] || "";
+  s[f] = e.target.value;
+  // ไม่เขียนเบอร์โทรลงประวัติ เพราะประวัติทุกคนเห็นได้
+  if (old !== e.target.value) memLog(s, f === "phone" ? "แก้เบอร์โทร" : `แก้${MEM_LABEL[f] || f} จาก ${old || "-"} เป็น ${e.target.value || "-"}`);
+  refresh(); renderMember();
+});
+
+/* ---------- Init ---------- */
+load();
+syncInfoInputs();
+renderRows();
+setMode("member");
+renderAll();
+initDb();
+// ปุ่มแอดมินแสดงเฉพาะเจ้าของลิงก์ (ผู้สร้าง Artifact)
+(async () => {
+  try{
+    const user = window.claude ? await window.claude.use("user") : null;
+    if (user && user.isOwner()){ isOwner = true; setMode(mode); }
+  }catch(e){}
+})();
+</script>
+</body>
+</html>

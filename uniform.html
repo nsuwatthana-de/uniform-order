@@ -660,7 +660,7 @@ $("bulkApply").addEventListener("click", () => {
   for (const line of lines){
     const [name = "", shirt = "", pants = "", back = "", num = ""] = line.split(/[,\t]/).map(p => p.trim());
     if (!name) continue;
-    added.push({ name, shirt: normSize(shirt, SHIRT_SIZES), pants: normSize(pants, PANTS_SIZES), back: back.toUpperCase(), num, amount:"", slip:"" });
+    added.push({ name, shirt: normSize(shirt, SHIRT_SIZES), pants: normSize(pants, PANTS_SIZES), back, num, amount:"", slip:"" });
   }
   if (!added.length){
     $("status").textContent = "ไม่พบรายการที่จะเพิ่ม ลองใส่แบบ: ชื่อ, ไซส์เสื้อ, ไซส์กางเกง";

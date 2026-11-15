@@ -1,0 +1,58 @@
+rules_version = '2';
+
+// ผังข้อมูลและสิทธิ์ (ดู public/fb-runtime.js)
+//   app/state            ทุกคนที่มีลิงก์อ่านและแก้ได้ ลบได้เฉพาะแอดมิน
+//   phones/{sid}         เบอร์โทรจริง: ทุกคนเขียนได้ อ่านได้เฉพาะแอดมิน
+//   media_public/{id}    รูป QR: ทุกคนอ่านได้ แอดมินเขียน/ลบ
+//   media_private/{id}   รูปสลิป: ทุกคนเขียนได้ อ่านและลบได้เฉพาะแอดมิน
+//   backups/{id}         สำเนาข้อมูล: เพิ่มได้อย่างเดียว อ่านได้เฉพาะแอดมิน
+//
+// แอดมิน = ล็อกอินด้วย Google ด้วยอีเมลในรายการนี้ (แก้ให้ตรงกับ ADMIN_EMAILS ใน public/fb-runtime.js)
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.lower() in [
+          "n.suwatthana@gmail.com"
+        ];
+    }
+    function isImage(d) {
+      return d.keys().hasOnly(['data']) && d.data is string
+        && d.data.matches('^data:image/[a-z+]+;base64,.*') && d.data.size() <= 250000;
+    }
+
+    match /app/state {
+      allow read: if true;
+      // ทุกคนแก้ได้ แต่ห้ามลดจำนวนออเดอร์ (ลบออเดอร์ได้เฉพาะแอดมิน)
+      allow create: if request.resource.data.orders is list;
+      allow update: if request.resource.data.orders is list
+        && (isAdmin() || request.resource.data.orders.size() >= resource.data.orders.size());
+      allow delete: if isAdmin();
+    }
+
+    match /phones/{sid} {
+      allow read, delete: if isAdmin();
+      allow create, update: if request.resource.data.phone is string
+        && request.resource.data.phone.size() <= 30;
+    }
+
+    match /media_public/{id} {
+      allow read: if true;
+      allow write: if isAdmin() && isImage(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /media_private/{id} {
+      allow read, delete: if isAdmin();
+      allow create, update: if id.matches('slip-[A-Za-z0-9_-]+') && isImage(request.resource.data);
+    }
+
+    match /backups/{id} {
+      allow read: if isAdmin();
+      allow create: if request.resource.data.orders is list;
+      allow update, delete: if false;
+    }
+  }
+}
