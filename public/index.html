@@ -469,7 +469,8 @@ function paidOf(s){
   if (s.amount !== undefined && s.amount !== ""){
     return Math.min(Math.max(Number(s.amount) || 0, 0), price);
   }
-  return s.paid ? price : 0;
+  // แนบสลิปแล้วแต่ยังไม่มียอด (เช่นสมาชิกแนบเอง หรือแนบก่อนใส่ราคา) ถือว่าโอนเต็มจำนวน แอดมินแก้ยอดได้ถ้าไม่ตรง
+  return (s.paid || s.slip) ? price : 0;
 }
 // สถานะการจ่าย: ยอดครบ + มีสลิป = จ่ายครบ (อัตโนมัติ)
 function payStatus(s){
@@ -520,7 +521,7 @@ function sizeOptions(selected, list){
 function amountField(s){
   const price = priceOf(s);
   if (s.amount !== undefined && s.amount !== "") return s.amount;
-  return s.paid && price ? String(price) : "";
+  return (s.paid || s.slip) && price ? String(price) : "";
 }
 
 function renderOrderSel(){
